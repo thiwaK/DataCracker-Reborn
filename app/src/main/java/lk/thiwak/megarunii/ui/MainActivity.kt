@@ -16,16 +16,17 @@ import android.widget.Toast
 import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import android.util.Log
 
 class MainActivity : AppCompatActivity() {
 
+    val TAG: String = "MainActivity"
     private lateinit var logReceiver: LogReceiver
     private lateinit var fab: FloatingActionButton
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
-        class LogFragment : Fragment(R.layout.fragment_log)
 
         // bottom nav
         val bottomNavigationView = findViewById<BottomNavigationView>(R.id.bottom_navigation)
@@ -38,11 +39,14 @@ class MainActivity : AppCompatActivity() {
         // bottom nav listener
         bottomNavigationView.setOnItemSelectedListener { item ->
             when (item.itemId) {
+
                 R.id.nav_home -> {
+                    Log.i(TAG, "HOME")
                     replaceFragment(HomeFragment())
                     true
                 }
                 R.id.nav_log -> {
+                    Log.i(TAG, "LOG")
                     replaceFragment(LogFragment())
                     true
                 }
@@ -79,6 +83,7 @@ class MainActivity : AppCompatActivity() {
                 startService()
             }
         }
+
 
     }
 

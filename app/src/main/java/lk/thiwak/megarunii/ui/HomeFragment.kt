@@ -5,6 +5,7 @@ import android.view.View
 import android.widget.TextView
 import lk.thiwak.megarunii.*
 import androidx.fragment.app.Fragment
+import android.util.Log
 
 class HomeFragment : Fragment(R.layout.fragment_home) {
 
