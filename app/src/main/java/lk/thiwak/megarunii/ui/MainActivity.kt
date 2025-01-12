@@ -9,18 +9,12 @@ import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
-import android.webkit.WebResourceRequest
-import android.webkit.WebResourceResponse
-import android.webkit.WebViewClient
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import lk.thiwak.megarunii.*
 import lk.thiwak.megarunii.log.LogReceiver
 import lk.thiwak.megarunii.log.Logger
-import lk.thiwak.megarunii.network.Request
 import android.widget.Toast
+import androidx.fragment.app.Fragment
+import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 
 class MainActivity : AppCompatActivity() {
@@ -31,14 +25,41 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        class LogFragment : Fragment(R.layout.fragment_log)
 
+        // bottom nav
+        val bottomNavigationView = findViewById<BottomNavigationView>(R.id.bottom_navigation)
+        if (savedInstanceState == null) {
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.fragment_container, HomeFragment())
+                .commit()
+        }
+
+        // bottom nav listener
+        bottomNavigationView.setOnItemSelectedListener { item ->
+            when (item.itemId) {
+                R.id.nav_home -> {
+                    replaceFragment(HomeFragment())
+                    true
+                }
+                R.id.nav_log -> {
+                    replaceFragment(LogFragment())
+                    true
+                }
+                else -> false
+            }
+        }
+
+        // Initialize and set up the toolbar and fab
         fab = findViewById(R.id.fab)
         val toolbar: androidx.appcompat.widget.Toolbar = findViewById(R.id.toolbar)
         setSupportActionBar(toolbar)
 
+        // log receiver
         logReceiver = LogReceiver()
         registerReceiver(logReceiver, IntentFilter(Utils.LOG_INTENT_ACTION))
 
+        // fab icon set
         if (isServiceRunning(BackgroundService::class.java, this)) {
             fab.setImageResource(R.drawable.ic_baseline_stop_circle_24) // Service is running
             Logger.debug(this, "FAB: set action to stop")
@@ -47,6 +68,7 @@ class MainActivity : AppCompatActivity() {
             Logger.debug(this, "FAB: set action to start")
         }
 
+        // fab action set
         fab.setOnClickListener {
             if (isServiceRunning(BackgroundService::class.java, this)) {
                 // If service is running, stop the service
@@ -58,13 +80,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-//        var browserMgr = BrowserManager()
-//        browserMgr.openUrl("https://duckduckgo.com")
+    }
 
-//        testNet()
-
-        val intent = Intent(this, WebViewActivity::class.java)
-        startActivity(intent)
+    private fun replaceFragment(fragment: Fragment) {
+        supportFragmentManager.beginTransaction()
+            .replace(R.id.fragment_container, fragment)
+            .commit()
     }
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
@@ -74,14 +95,24 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
-            R.id.action_log -> {
-                val intent = Intent(this, LogActivity::class.java)
-                startActivity(intent)
-                return true
+
+            R.id.action_load_config -> {
+                // Handle load config action
+                true
+            }
+            R.id.action_reset_config -> {
+                // Handle reset config action
+                true
+            }
+            R.id.action_export_base_config -> {
+                // Handle export base config action
+                true
             }
         }
+
         return super.onOptionsItemSelected(item)
     }
+
 
     private fun isServiceRunning(serviceClass: Class<out Service>, context: Context): Boolean {
         val manager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
@@ -115,3 +146,4 @@ class MainActivity : AppCompatActivity() {
 
 
 }
+
