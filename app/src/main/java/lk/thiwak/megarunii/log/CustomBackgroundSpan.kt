@@ -17,7 +17,6 @@ class CustomBackgroundSpan(private val drawable: Drawable) : ReplacementSpan() {
         end: Int,
         fm: Paint.FontMetricsInt?
     ): Int {
-        // Calculate the width of the text
         return paint.measureText(text, start, end).toInt()
     }
 
@@ -41,21 +40,22 @@ class CustomBackgroundSpan(private val drawable: Drawable) : ReplacementSpan() {
         // Parse and format the log entry
         val formattedText = htmlFormatter(text.substring(start, end))
 
-        // Use StaticLayout to render formatted text
-        val staticLayout = StaticLayout.Builder
-            .obtain(formattedText, 0, formattedText.length, TextPaint(paint), parentWidth.toInt())
-            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
-            .setLineSpacing(0f, 1f)
-            .build()
+        // Use the older StaticLayout constructor
+        val staticLayout = StaticLayout(
+            formattedText,
+            TextPaint(paint),
+            parentWidth.toInt(),
+            Layout.Alignment.ALIGN_NORMAL,
+            1.0f, // line spacing multiplier
+            0.0f, // line spacing extra
+            false // include padding
+        )
 
         canvas.save()
         canvas.translate(x, top.toFloat()) // Position text within the drawable
         staticLayout.draw(canvas)
         canvas.restore()
     }
-
-
-
 
     private fun parseLogEntry(logEntry: String): Triple<String, String, String> {
         val regex = """\[(.*?)\] \[(.*?)\] (.*)""".toRegex()
@@ -65,42 +65,34 @@ class CustomBackgroundSpan(private val drawable: Drawable) : ReplacementSpan() {
             val (datetime, level, message) = it.destructured
             Log.i("MM", "$datetime, $level, $message")
             Triple(datetime, level, message)
-        } ?:
-
-        return Triple("", "", "")
+        } ?: Triple("", "", "")
     }
 
     private fun htmlFormatter(logEntry: String): Spanned {
-
         val (datetime, logLevel, message) = parseLogEntry(logEntry)
 
-        var msgTextColor = "#CCCCCC" // Full brightness for the message text
-        var dateTextColor = "#808080" // Darker green for datetime
+        var msgTextColor = "#CCCCCC" // Default message text color
+        var dateTextColor = "#808080" // Default datetime text color
 
         if (logLevel == "I") {
-            msgTextColor = "#2481d1" // Bright light blue
-            dateTextColor = "#4682B4" // Steel blue
+            msgTextColor = "#2481d1" // Info color
+            dateTextColor = "#4682B4" // Info datetime color
         } else if (logLevel == "E") {
-            msgTextColor = "#FF4444" // Bright red
-            dateTextColor = "#8B0000" // Dark red
+            msgTextColor = "#FF4444" // Error color
+            dateTextColor = "#8B0000" // Error datetime color
         } else if (logLevel == "W") {
-            msgTextColor = "#FFFF00" // Bright yellow
-            dateTextColor = "#B8860B" // Dark goldenrod
+            msgTextColor = "#FFFF00" // Warning color
+            dateTextColor = "#B8860B" // Warning datetime color
         }
 
+        // Use older Html.fromHtml for backward compatibility
+        @Suppress("DEPRECATION")
         return Html.fromHtml(
             "<p style='font-family:monospace;'>" +
                     "<span style=\"color:$dateTextColor;\">  $datetime  </span> " +
-                    "<span style=\"color:$msgTextColor style='font-size:8px;\">$message</span>" +
-                    "</p>",
-            Html.FROM_HTML_MODE_COMPACT
+                    "<span style=\"color:$msgTextColor; font-size:8px;\">$message</span>" +
+                    "</p>"
         )
-
-
-
-
-
-
     }
-
 }
+

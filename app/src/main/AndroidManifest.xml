@@ -6,6 +6,7 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE"/>
 
     <application
         android:allowBackup="true"
@@ -17,15 +18,17 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MegaRunII"
         tools:targetApi="31">
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
         <activity
             android:name=".ui.WebViewActivity"
-            android:exported="false">
-            <meta-data
-                android:name="android.app.lib_name"
-                android:value="" />
-        </activity>
-        <activity
-            android:name=".ui.LogActivity"
             android:exported="false">
             <meta-data
                 android:name="android.app.lib_name"
