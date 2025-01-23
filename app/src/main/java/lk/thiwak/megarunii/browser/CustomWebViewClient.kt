@@ -6,6 +6,7 @@ import lk.thiwak.megarunii.Utils
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 
 open class CustomWebViewClient : WebViewClient() {
 
@@ -15,7 +16,8 @@ open class CustomWebViewClient : WebViewClient() {
 
     private val client = OkHttpClient()
 
-    private fun logResponse(response: Response) {
+    private fun logResponse(response: Response, content: String, ) {
+
         val text = """
             ${response.request.method} ${response.request.url}
             ${response.code} ${response.body?.contentType()}
@@ -24,24 +26,26 @@ open class CustomWebViewClient : WebViewClient() {
 //        response.headers.forEach { (key, value) ->
 //            Log.d(TAG, "Header: $key = $value")
 //        }
-
 //        Log.d(TAG, text)
 
         if (response.request.url.toString().contains("/api/user/v1/access-token/")){
             Log.w(TAG, "Game arena configuration loaded")
             Log.d(TAG, text)
+            Log.d(TAG, content)
         }
 
         else if(response.request.url.toString().contains("/games/${Utils.FOOD_BLOCKS_GAME_ID}/build") &&
             response.request.url.toString().endsWith("bundle.js")){
             Log.w(TAG, "FoodBlocks game JS request detected")
             Log.d(TAG, text)
+            Log.d(TAG, content)
         }
 
         else if(response.request.url.toString().contains("/games/${Utils.RAID_SHOOTER_GAME_ID}/build") &&
             response.request.url.toString().endsWith("bundle.js")){
             Log.w(TAG, "RaidShooter game JS request detected")
             Log.d(TAG, text)
+            Log.d(TAG, content)
         }
     }
 
@@ -51,19 +55,20 @@ open class CustomWebViewClient : WebViewClient() {
         }
     }
 
-    fun fetchDataFromUrl(url: String, requestHeaders: Map<String, List<String>>): Response {
-        try {
+    // TODO need better exception handling and SSL
+    fun fetchDataFromUrl(url: String, requestHeaders: Map<String, List<String>>): Response? {
+        return try {
+
             val request = buildRequest(url, requestHeaders)
             validateRequestHeaders(request)
 
             val response = client.newCall(request).execute()
 
-            logResponse(response)
-
-            return response
+            logResponse(response, "content")
+            response
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching data from $url", e)
-            throw RuntimeException("Error fetching data", e)
+            null // Return null or handle differently if required
         }
     }
 
