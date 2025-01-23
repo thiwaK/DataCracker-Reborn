@@ -16,6 +16,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import lk.thiwak.megarunii.log.LogReceiver
 import lk.thiwak.megarunii.log.Logger
+import lk.thiwak.megarunii.R
 import kotlin.properties.Delegates
 
 class BackgroundService : Service() {
@@ -25,10 +26,10 @@ class BackgroundService : Service() {
     private var startTime by Delegates.notNull<Long>()
     private lateinit var notificationManager: NotificationManager
     private lateinit var notificationBuilder: NotificationCompat.Builder
-    private lateinit var handler: Handler
-    private lateinit var runnable:Runnable
-    private lateinit var backgroundThread: Worker
-    private var shouldRun by Delegates.notNull<Boolean>()
+    lateinit var handler: Handler
+    lateinit var runnable:Runnable
+    lateinit var backgroundThread: Worker
+    var shouldRun by Delegates.notNull<Boolean>()
 
     companion object {
         const val CHANNEL_ID = "MegaRunIIBackgroundServiceChannel"
@@ -38,10 +39,11 @@ class BackgroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        // register log receiver
         logReceiver = LogReceiver()
         registerReceiver(logReceiver, IntentFilter(Utils.LOG_INTENT_ACTION))
-        stopReceiver = StopReceiver()
-        registerReceiver(stopReceiver, IntentFilter(STOP_SERVICE_INTENT_ACTION))
+
+
 
         startTime = System.currentTimeMillis()
         shouldRun = true
@@ -71,6 +73,12 @@ class BackgroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         Logger.info(this, "Service started")
         performBackgroundTask()
+
+        // register service stop receiver
+        stopReceiver = StopReceiver(this, backgroundThread)
+        registerReceiver(stopReceiver, IntentFilter(STOP_SERVICE_INTENT_ACTION))
+
+
         return START_STICKY // Keep the service running unless explicitly stopped
     }
 
@@ -133,23 +141,9 @@ class BackgroundService : Service() {
     private fun performBackgroundTask() {
         // Start a background thread to simulate work
         backgroundThread = Worker(this)
+
         backgroundThread?.start()
     }
 
-    // BroadcastReceiver to stop the service
-    private inner class StopReceiver : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            Log.i("BackgroundService", "Stop action received, stopping service...")
-            backgroundThread.stopNow()
 
-            while (backgroundThread?.isAlive == true){
-                Thread.sleep(1000)
-            }
-            Log.i("BackgroundService", "Thread stopped.")
-
-            shouldRun = false
-            handler.removeCallbacks(runnable)
-            stopSelf()
-        }
-    }
 }

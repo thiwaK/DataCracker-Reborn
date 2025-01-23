@@ -1,53 +1,99 @@
 package lk.thiwak.megarunii
 
 import android.content.Context
+import android.content.Intent
 import android.util.Log
-import androidx.core.content.ContextCompat
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import lk.thiwak.megarunii.network.Request
-import kotlin.properties.Delegates
+import androidx.core.content.ContextCompat.startActivity
+import lk.thiwak.megarunii.log.Logger
+import lk.thiwak.megarunii.network.API
+import lk.thiwak.megarunii.ui.WebViewActivity
+import org.json.JSONObject
 
 class Worker(val context: Context): Thread() {
 
-    @Volatile var shouldStop:Boolean = false
+    @Volatile var stop:Boolean = false
+    private lateinit var mainConfig: Configuration
+    private lateinit var api: API
 
-    fun stopNow(){
-        shouldStop = true
-
+    fun stopNow() {
+        stop = true
     }
 
-    private fun testNet() {
-        val initialHeaders = mapOf(
-            "User-Agent" to "OkHTTP",
-        )
-        val req = Request(context)
-        req.addHeaders(initialHeaders)
 
-        val result = req.getData("https://duckduckgo.com", null)
+    private fun preInit(): JSONObject? {
+        if (!api.checkout()){
+            if (!api.getAccessToken()){
+                Logger.error(context, "Unable to continue: getAccessToken failed")
+                stopNow()
+                return null
+            }else{
+                if (!api.checkout()){
+                    Logger.error(context, "Unable to continue: checkout failed")
+                    stopNow()
+                    return null
+                }
+            }
+        }
 
-        Log.w("NET", result?.body.toString())
-        Log.w("NET", result?.code.toString())
+        if (!api.getMegaWasana()){
+            Logger.error(context, "Unable to continue: getMegaWasana failed")
+            stopNow()
+            return null
+        }
+
+        if (!api.getUserInfo()){
+            Logger.error(context, "Unable to continue: getUserInfo failed")
+            stopNow()
+            return null
+        }
+
+        if (!api.getBanners()){
+            Logger.error(context, "Unable to continue: getBanners failed")
+            stopNow()
+            return null
+        }
+
+        val gameArena = api.authorizeMegaApp()
+        if (gameArena.isNullOrEmpty()){
+            Logger.error(context, "Unable to continue: authorizeMegaApp failed")
+            stopNow()
+            return null
+        }
+
+
+
+        return JSONObject(gameArena)
     }
 
     override fun run() {
 
+        mainConfig = Utils.getCoreConfiguration(context)!!
+        api = API(context, mainConfig)
+
+        Logger.warning(context, "Worker started")
+        //TODO make preInit work
+
+        val gameArena = preInit() ?: return
+
+        val url = "${gameArena.getString("redirectUrl")}?token=${gameArena.getString("token")}"
+        val intent = Intent(context, WebViewActivity::class.java)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        intent.putExtra("url", url)
+        context.startActivity(intent)
+
+        stop = true
         for (i in 1..60) {
 
-            if (shouldStop){
+            if (stop){
                 interrupt()
             }
 
             if (currentThread().isInterrupted) {
-                Log.i("BackgroundService", "Background task interrupted, stopping task...")
+                Log.w("BackgroundService", "Background task interrupted, stopping task...")
                 return
             }
 
-            Log.i("BackgroundService", "Task running: $i")
-
-            testNet()
+            Log.w("BackgroundService", "Task running: $i")
 
             try {
                 sleep(5000)

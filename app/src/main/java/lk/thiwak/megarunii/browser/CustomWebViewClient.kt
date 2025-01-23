@@ -2,6 +2,7 @@ package lk.thiwak.megarunii.browser
 
 import android.util.Log
 import android.webkit.WebViewClient
+import lk.thiwak.megarunii.Utils
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
@@ -24,12 +25,29 @@ open class CustomWebViewClient : WebViewClient() {
 //            Log.d(TAG, "Header: $key = $value")
 //        }
 
-        Log.d(TAG, text)
+//        Log.d(TAG, text)
+
+        if (response.request.url.toString().contains("/api/user/v1/access-token/")){
+            Log.w(TAG, "Game arena configuration loaded")
+            Log.d(TAG, text)
+        }
+
+        else if(response.request.url.toString().contains("/games/${Utils.FOOD_BLOCKS_GAME_ID}/build") &&
+            response.request.url.toString().endsWith("bundle.js")){
+            Log.w(TAG, "FoodBlocks game JS request detected")
+            Log.d(TAG, text)
+        }
+
+        else if(response.request.url.toString().contains("/games/${Utils.RAID_SHOOTER_GAME_ID}/build") &&
+            response.request.url.toString().endsWith("bundle.js")){
+            Log.w(TAG, "RaidShooter game JS request detected")
+            Log.d(TAG, text)
+        }
     }
 
     private fun validateRequestHeaders(request: Request){
         request.headers.forEach { (key, value) ->
-            Log.d(TAG, "Header: $key = $value")
+//            Log.d(TAG, "Header: $key = $value")
         }
     }
 

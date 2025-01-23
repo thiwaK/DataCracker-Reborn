@@ -1,11 +1,13 @@
 package lk.thiwak.megarunii.ui
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.app.ActivityManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.net.Uri
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -13,30 +15,42 @@ import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.FileProvider
+import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import lk.thiwak.megarunii.*
+import lk.thiwak.megarunii.BackgroundService
+import lk.thiwak.megarunii.R
+import lk.thiwak.megarunii.Utils
 import lk.thiwak.megarunii.log.LogReceiver
 import lk.thiwak.megarunii.log.Logger
-import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.File
-import java.io.InputStreamReader
+import java.io.*
+import java.util.*
+
 
 class MainActivity : AppCompatActivity() {
 
     val TAG: String = "MainActivity"
     private lateinit var logReceiver: LogReceiver
     private lateinit var fab: FloatingActionButton
+    private val REQUEST_CODE_PICK_FILE = 1
+
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        generateClientUniqueId();
+        if (!arePermissionsGranted()) {
+            requestPermissions()
+        }
+//        else{
+//            Toast.makeText(applicationContext, "You are good to go!", Toast.LENGTH_SHORT).show()
+//        }
+
+//        parseConfig();
+
 
         // bottom nav
         val bottomNavigationView = findViewById<BottomNavigationView>(R.id.bottom_navigation)
@@ -94,112 +108,99 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-
     }
 
-    fun shareDeviceInfo_(context: Context) {
+    private fun parseConfig() {
 
-        fun getSystemProperty(key: String): String {
-            return try {
-                val process = Runtime.getRuntime().exec("getprop $key")
-                BufferedReader(InputStreamReader(process.inputStream)).use { it.readLine() ?: "" }
-            } catch (e: Exception) {
-                ""
-            }
+        val config = Utils.getCoreConfiguration(applicationContext)
+        if (config == null) {
+            Toast.makeText(applicationContext, "Ask for new configuration", Toast.LENGTH_LONG).show()
+            return
         }
-
-        // Collect device information
-//        val deviceInfo = JSONObject().apply {
-//            put("ro.build.PDA", android.os.Build.DISPLAY)
-//            put("ro.build.id", android.os.Build.ID)
-//            put("ro.build.display.id", android.os.Build.DISPLAY)
-//            put("ro.build.version.incremental", android.os.Build.VERSION.INCREMENTAL)
-//            put("ro.build.version.release", android.os.Build.VERSION.RELEASE)
-//            put("ro.build.version.sdk", android.os.Build.VERSION.SDK_INT)
-//            put("ro.product.model", android.os.Build.MODEL)
-//            put("ro.product.brand", android.os.Build.BRAND)
-//            put("ro.product.name", android.os.Build.PRODUCT)
-//            put("ro.product.device", android.os.Build.DEVICE)
-//            put("ro.product.board", android.os.Build.BOARD)
-//            put("FINGERPRINT", android.os.Build.FINGERPRINT)
-//            put("BOOTLOADER", android.os.Build.BOOTLOADER)
-//            put("HOST", android.os.Build.HOST)
-//            put("HARDWARE", android.os.Build.HARDWARE)
-//            put("ro.product.manufacturer", android.os.Build.MANUFACTURER)
-//            put("ro.product.cpu.abi", android.os.Build.SUPPORTED_ABIS.firstOrNull() ?: "unknown")
-//            put("ro.product.cpu.abilist", android.os.Build.SUPPORTED_ABIS.joinToString(","))
-//
-//        }
-
-        val deviceInfo = mutableMapOf<String, String>().apply {
-            put("ro.build.type", getSystemProperty("ro.build.type"))
-            put("ro.build.tags", getSystemProperty("ro.build.tags"))
-            put("ro.build.version.security_patch", getSystemProperty("ro.build.version.security_patch"))
-            put("ro.build.version.incremental", getSystemProperty("ro.build.version.incremental"))
-            put("ro.build.version.release", getSystemProperty("ro.build.version.release"))
-            put("ro.build.version.sdk", getSystemProperty("ro.build.version.sdk"))
-            put("ro.build.id", getSystemProperty("ro.build.id"))
-            put("ro.product.device", getSystemProperty("ro.product.device"))
-            put("ro.product.name", getSystemProperty("ro.product.name"))
-            put("ro.product.model", getSystemProperty("ro.product.model"))
-            put("ro.product.brand", getSystemProperty("ro.product.brand"))
-            put("ro.product.board", getSystemProperty("ro.product.board"))
-        }
-
-        deviceInfo["ro.build.product"] = deviceInfo["ro.product.device"] ?: ""
-        deviceInfo["ro.build.hidden_ver"] = deviceInfo["ro.build.version.incremental"] ?: ""
-        deviceInfo["ro.build.display.id"] =
-            "${deviceInfo["ro.build.id"]}.${deviceInfo["ro.build.version.incremental"]}"
-        deviceInfo["ro.build.PDA"] = deviceInfo["ro.build.version.incremental"] ?: ""
-        deviceInfo["ro.build.flavor"] =
-            "${deviceInfo["ro.product.name"]}-${deviceInfo["ro.build.type"]}"
-        deviceInfo["ro.build.description"] =
-            "${deviceInfo["ro.product.name"]}-${deviceInfo["ro.build.type"]} " +
-                    "${deviceInfo["ro.build.version.release"]} ${deviceInfo["ro.build.id"]} " +
-                    "${deviceInfo["ro.build.version.incremental"]} ${deviceInfo["ro.build.tags"]}"
-        deviceInfo["ro.build.fingerprint"] =
-            "${deviceInfo["ro.product.brand"]}/${deviceInfo["ro.product.name"]}/" +
-                    "${deviceInfo["ro.product.device"]}:${deviceInfo["ro.build.version.release"]}/" +
-                    "${deviceInfo["ro.build.id"]}/${deviceInfo["ro.build.version.incremental"]}:" +
-                    "${deviceInfo["ro.build.type"]}/${deviceInfo["ro.build.tags"]}"
-
-        // Save the JSON to a file
-        val deviceInfoJson = JSONObject(deviceInfo as Map<*, *>?)
-
-        val jsonFile = File(context.cacheDir, "base_config.json").apply {
-            writeText(deviceInfoJson.toString(4)) // Pretty print with 4 spaces
-        }
-
-        // Create a content Uri using FileProvider
-        val fileUri: Uri = FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.provider", // Replace with your FileProvider authority
-            jsonFile
-        )
-
-        // Create an intent to share the file
-        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-            type = "application/json"
-            putExtra(Intent.EXTRA_STREAM, fileUri)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-
-        // Start the share activity
-        context.startActivity(Intent.createChooser(shareIntent, "Share Device Info"))
     }
 
-    fun generateClientUniqueId(): String? {
-        // Get the unique Android ID
-
+    @SuppressLint("HardwareIds")
+    private fun generateClientUniqueId(): String? {
         val androidId: String = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
         Log.i("Utils", androidId)
-
-
-
-
-        // Optionally, you can append other device information for more uniqueness
-        return androidId + "-" + Build.MODEL + "-" + Build.VERSION.RELEASE
+        return androidId
     }
+
+
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        when (requestCode) {
+            requestCode -> if (grantResults.isNotEmpty()) {
+                if (grantResults[0] === PackageManager.PERMISSION_GRANTED) {
+                    Toast.makeText(applicationContext, "Permission granted", Toast.LENGTH_LONG)
+                        .show()
+                } else {
+                    Toast.makeText(applicationContext, "Permission denied", Toast.LENGTH_LONG)
+                        .show()
+                }
+            }
+        }
+    }
+
+    private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (permissions[Manifest.permission.READ_MEDIA_IMAGES] == true ||
+                permissions[Manifest.permission.READ_MEDIA_AUDIO] == true ||
+                permissions[Manifest.permission.READ_MEDIA_VIDEO] == true) {
+                // perform task`
+            } else {
+                Toast.makeText(this, "Permissions denied", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            if (permissions[Manifest.permission.READ_EXTERNAL_STORAGE] == true &&
+                permissions[Manifest.permission.WRITE_EXTERNAL_STORAGE] == true) {
+                // perform task`
+            } else {
+                Toast.makeText(this, "Permissions denied", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun requestPermissions() {
+        val permissionsToRequest = when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
+                arrayOf(
+                    Manifest.permission.READ_MEDIA_IMAGES,
+                    Manifest.permission.READ_MEDIA_VIDEO,
+                    Manifest.permission.READ_MEDIA_AUDIO,
+                    Manifest.permission.READ_PHONE_STATE
+                )
+            } else -> {
+                arrayOf(
+                    Manifest.permission.READ_EXTERNAL_STORAGE,
+                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                    Manifest.permission.READ_PHONE_STATE
+                )
+            }
+        }
+        requestPermissionLauncher.launch(permissionsToRequest)
+    }
+
+    private fun arePermissionsGranted(): Boolean {
+        return when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> {
+                ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED
+            }
+            else -> {
+                ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.READ_PHONE_STATE) == PackageManager.PERMISSION_GRANTED &&
+                ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+            }
+        }
+    }
+
+
 
     private fun replaceFragment(fragment: Fragment) {
         supportFragmentManager.beginTransaction()
@@ -216,12 +217,13 @@ class MainActivity : AppCompatActivity() {
         when (item.itemId) {
 
             R.id.action_load_config -> {
-                // Handle load config action
-                true
+                val intent = Intent(Intent.ACTION_GET_CONTENT)
+                intent.type = "application/octet-stream"
+                startActivityForResult(intent, REQUEST_CODE_PICK_FILE)
             }
             R.id.action_reset_config -> {
-                // Handle reset config action
-                true
+                File(applicationContext.filesDir, "configuration.bin").delete()
+                File(applicationContext.filesDir, "config.json").delete()
             }
             R.id.action_export_base_config -> {
                 // Handle export base config action
@@ -232,6 +234,7 @@ class MainActivity : AppCompatActivity() {
 
         return super.onOptionsItemSelected(item)
     }
+
 
 
     private fun isServiceRunning(serviceClass: Class<out Service>, context: Context): Boolean {
@@ -264,6 +267,29 @@ class MainActivity : AppCompatActivity() {
     }
 
 
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode == RESULT_OK && requestCode == REQUEST_CODE_PICK_FILE) {
+            data?.data?.let { uri ->
+                val inputStream = contentResolver.openInputStream(uri)
+                val destinationFile = File(applicationContext.filesDir, "configuration.bin")
+
+                try {
+                    val outputStream = FileOutputStream(destinationFile)
+                    inputStream?.copyTo(outputStream)
+                    Utils.unpackConfig(applicationContext)
+                    Toast.makeText(this, "Configuration file loaded successfully", Toast.LENGTH_SHORT).show()
+
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Toast.makeText(this, "Failed to load configuration file", Toast.LENGTH_SHORT).show()
+                } finally {
+                    inputStream?.close()
+                }
+            }
+        }
+    }
 
 }
 
