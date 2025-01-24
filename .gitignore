@@ -9,3 +9,8 @@
 *.bin
 *.dll
 *.xml
+/Android-Kotlin/.gradle
+/Android-Kotlin/.idea
+/.gradle
+/.idea
+*.jar

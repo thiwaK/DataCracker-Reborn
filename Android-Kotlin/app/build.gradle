@@ -1,0 +1,100 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+
+    id("com.chaquo.python")
+}
+
+android {
+
+    namespace 'lk.thiwak.megarunii'
+    compileSdk 34
+
+    defaultConfig {
+
+        applicationId "lk.thiwak.megarunii"
+        minSdk 24
+        //noinspection OldTargetApi
+        targetSdk 33
+        versionCode 1
+        versionName "1.0"
+
+        flavorDimensions "pyVersion"
+        productFlavors {
+            create("py311") { dimension = "pyVersion" }
+        }
+
+        ndk {
+            abiFilters "arm64-v8a"//, "armeabi-v7a"
+        }
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+//        externalNativeBuild {
+//            cmake {
+//                arguments '-DANDROID_PLATFORM=android-21' // Target API level 21
+////                cppFlags "-std=c++17" // Enable C++17
+//                abiFilters "arm64-v8a", "armeabi-v7a" // Specify supported ABIs
+//            }
+//        }
+    }
+
+    chaquopy {
+        productFlavors {
+            getByName("py311") { version = "3.11" }
+        }
+        defaultConfig {
+            version = "3.11"
+            pip {
+                // A requirement specifier, with or without a version number:
+                install("Brotli-1.1.0-cp311-cp311-linux_armv7l.whl")
+                install("Brotli-1.1.0-cp311-cp311-musllinux_1_2_aarch64.whl")
+                install("selenium")
+                install("selenium-wire")
+            }
+        }
+
+
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+    buildToolsVersion '33.0.3'
+
+//    externalNativeBuild {
+//        cmake {
+//            path file('src/main/cpp/CMakeLists.txt')
+//            version '3.18.1'
+//        }
+//    }
+}
+
+dependencies {
+//    implementation project(':app:cry')
+
+    implementation 'com.auth0:java-jwt:3.18.2'
+    implementation("com.google.code.gson:gson:2.10.1")
+    implementation 'net.lingala.zip4j:zip4j:2.11.5'
+    implementation 'com.google.android.material:material:1.9.0'
+    implementation 'com.squareup.okhttp3:okhttp:4.9.2'
+
+    implementation 'androidx.core:core-ktx:1.8.0'
+    implementation 'androidx.appcompat:appcompat:1.5.0'
+    implementation 'com.google.android.material:material:1.12.0'
+
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.2.1'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.6.1'
+}

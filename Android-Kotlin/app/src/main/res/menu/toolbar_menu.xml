@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/action_menu"
+        android:icon="@drawable/ic_baseline_build_24"
+        android:title="More"
+        app:showAsAction="always">
+
+        <menu>
+            <item
+                android:id="@+id/action_load_config"
+                android:title="Load Config" />
+            <item
+                android:id="@+id/action_reset_config"
+                android:title="Reset Config" />
+            <item
+                android:id="@+id/action_export_base_config"
+                android:title="Export Base Config" />
+        </menu>
+    </item>
+</menu>
