@@ -19,6 +19,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import com.chaquo.python.Python
+import com.chaquo.python.android.AndroidPlatform
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import lk.thiwak.megarunii.BackgroundService
@@ -45,11 +47,13 @@ class MainActivity : AppCompatActivity() {
         if (!arePermissionsGranted()) {
             requestPermissions()
         }
-//        else{
-//            Toast.makeText(applicationContext, "You are good to go!", Toast.LENGTH_SHORT).show()
-//        }
 
-//        parseConfig();
+        if (!Python.isStarted()) {
+            Python.start(AndroidPlatform(applicationContext));
+        }
+
+        val py = Python.getInstance()
+        val module = py.getModule("main")
 
 
         // bottom nav
