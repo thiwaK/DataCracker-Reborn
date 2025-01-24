@@ -1,23 +1,30 @@
 package lk.thiwak.megarunii.ui
 
 import android.annotation.SuppressLint
+import android.content.Context
+import android.content.IntentFilter
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
+import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import android.webkit.WebViewClient
+import lk.thiwak.megarunii.*
 import lk.thiwak.megarunii.browser.MyWebViewClient
 import lk.thiwak.megarunii.browser.CustomWebChromeClient
-import lk.thiwak.megarunii.R
 
 
 class WebViewActivity : AppCompatActivity() {
+
+    private lateinit var webView: WebView
+    private lateinit var gameConfigReceiver: GameConfigReceiver
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_web_view)
 
-        val webView = findViewById<WebView>(R.id.webView)
+        webView = findViewById(R.id.webView)
         val webSettings = webView.settings
 
         webView.settings.javaScriptEnabled = true
@@ -39,9 +46,30 @@ class WebViewActivity : AppCompatActivity() {
 
         webView.webViewClient = MyWebViewClient(this, data)
         webView.webChromeClient = CustomWebChromeClient()
+        webView.addJavascriptInterface(WebAppInterface(this), "Android")
+
 
         webView.loadUrl(url)
 
+        gameConfigReceiver = GameConfigReceiver(this)
+        registerReceiver(gameConfigReceiver, IntentFilter(Utils.GAME_CONFIG_INTENT_ACTION))
+
+    }
+
+    override fun onDestroy() {
+        webView.stopLoading()
+        webView.removeAllViews()
+        webView.destroy()
+        unregisterReceiver(gameConfigReceiver)
+        super.onDestroy()
+    }
+
+    class WebAppInterface(private val context: Context) {
+        @JavascriptInterface
+        fun capturePostData(postData: String) {
+            Log.d("WebView", "POST Data: $postData")
+            // Handle the POST data here (e.g., send it via your own HTTP client)
+        }
     }
 
 }

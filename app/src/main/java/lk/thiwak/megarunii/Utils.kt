@@ -18,6 +18,7 @@ import java.security.MessageDigest
 import java.util.*
 
 object Utils {
+    public const val GAME_CONFIG_INTENT_ACTION = "lk.thiwak.megarunii.GAME_CONFIG"
     public const val LOG_INTENT_ACTION = "lk.thiwak.megarunii.LOG_MESSAGE"
     public const val STOP_SERVICE_INTENT_ACTION = "lk.thiwak.megarunii.STOP_SERVICE"
     public const val RAID_SHOOTER_V = 20

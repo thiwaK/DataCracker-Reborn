@@ -77,14 +77,14 @@
                 <action android:name="lk.thiwak.megarunii.LOG_MESSAGE" />
             </intent-filter>
         </receiver>
-<!--        <receiver-->
-<!--            android:name=".BackgroundService"-->
-<!--            android:enabled="true"-->
-<!--            android:exported="true">-->
-<!--            <intent-filter>-->
-<!--                <action android:name="lk.thiwak.megarunii.STOP_SERVICE" />-->
-<!--            </intent-filter>-->
-<!--        </receiver>-->
+        <receiver
+            android:name=".GameConfigReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="lk.thiwak.megarunii.GAME_CONFIG" />
+            </intent-filter>
+        </receiver>
 
         <service
             android:name=".BackgroundService"

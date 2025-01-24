@@ -16,55 +16,19 @@ open class CustomWebViewClient : WebViewClient() {
 
     private val client = OkHttpClient()
 
-    private fun logResponse(response: Response, content: String, ) {
-
-        val text = """
-            ${response.request.method} ${response.request.url}
-            ${response.code} ${response.body?.contentType()}
-        """.trimIndent()
-
-//        response.headers.forEach { (key, value) ->
+    private fun validateRequestHeaders(request: Request){
+//        request.headers.forEach { (key, value) ->
 //            Log.d(TAG, "Header: $key = $value")
 //        }
-//        Log.d(TAG, text)
-
-        if (response.request.url.toString().contains("/api/user/v1/access-token/")){
-            Log.w(TAG, "Game arena configuration loaded")
-            Log.d(TAG, text)
-            Log.d(TAG, content)
-        }
-
-        else if(response.request.url.toString().contains("/games/${Utils.FOOD_BLOCKS_GAME_ID}/build") &&
-            response.request.url.toString().endsWith("bundle.js")){
-            Log.w(TAG, "FoodBlocks game JS request detected")
-            Log.d(TAG, text)
-            Log.d(TAG, content)
-        }
-
-        else if(response.request.url.toString().contains("/games/${Utils.RAID_SHOOTER_GAME_ID}/build") &&
-            response.request.url.toString().endsWith("bundle.js")){
-            Log.w(TAG, "RaidShooter game JS request detected")
-            Log.d(TAG, text)
-            Log.d(TAG, content)
-        }
-    }
-
-    private fun validateRequestHeaders(request: Request){
-        request.headers.forEach { (key, value) ->
-//            Log.d(TAG, "Header: $key = $value")
-        }
+        Log.w(TAG, "<< validateRequestHeaders >>")
     }
 
     // TODO need better exception handling and SSL
     fun fetchDataFromUrl(url: String, requestHeaders: Map<String, List<String>>): Response? {
         return try {
-
             val request = buildRequest(url, requestHeaders)
             validateRequestHeaders(request)
-
             val response = client.newCall(request).execute()
-
-            logResponse(response, "content")
             response
         } catch (e: Exception) {
             Log.e(TAG, "Error fetching data from $url", e)
