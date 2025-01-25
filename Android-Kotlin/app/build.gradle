@@ -2,7 +2,7 @@ plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
 
-    id("com.chaquo.python")
+//    id("com.chaquo.python")
 }
 
 android {
@@ -19,13 +19,13 @@ android {
         versionCode 1
         versionName "1.0"
 
-        flavorDimensions "pyVersion"
-        productFlavors {
-            create("py311") { dimension = "pyVersion" }
-        }
+//        flavorDimensions "pyVersion"
+//        productFlavors {
+//            create("py311") { dimension = "pyVersion" }
+//        }
 
         ndk {
-            abiFilters "arm64-v8a"//, "armeabi-v7a"
+            abiFilters "arm64-v8a", "armeabi-v7a"
         }
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
@@ -39,23 +39,23 @@ android {
 //        }
     }
 
-    chaquopy {
-        productFlavors {
-            getByName("py311") { version = "3.11" }
-        }
-        defaultConfig {
-            version = "3.11"
-            pip {
-                // A requirement specifier, with or without a version number:
-                install("Brotli-1.1.0-cp311-cp311-linux_armv7l.whl")
-                install("Brotli-1.1.0-cp311-cp311-musllinux_1_2_aarch64.whl")
-                install("selenium")
-                install("selenium-wire")
-            }
-        }
-
-
-    }
+//    chaquopy {
+//        productFlavors {
+//            getByName("py311") { version = "3.11" }
+//        }
+//        defaultConfig {
+//            version = "3.11"
+//            pip {
+//                // A requirement specifier, with or without a version number:
+//                install("Brotli-1.1.0-cp311-cp311-linux_armv7l.whl")
+//                install("Brotli-1.1.0-cp311-cp311-musllinux_1_2_aarch64.whl")
+//                install("selenium")
+//                install("selenium-wire")
+//            }
+//        }
+//
+//
+//    }
 
     buildTypes {
         release {
@@ -82,7 +82,8 @@ android {
 }
 
 dependencies {
-//    implementation project(':app:cry')
+    implementation project(':app:webview')
+//    implementation 'com.github.acsbendi:Android-Request-Inspector-WebView:1.0.12'
 
     implementation 'com.auth0:java-jwt:3.18.2'
     implementation("com.google.code.gson:gson:2.10.1")

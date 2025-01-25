@@ -17,6 +17,8 @@ import androidx.core.app.NotificationCompat
 import lk.thiwak.megarunii.log.LogReceiver
 import lk.thiwak.megarunii.log.Logger
 import lk.thiwak.megarunii.R
+import lk.thiwak.megarunii.ui.MainActivity
+import org.json.JSONObject
 import kotlin.properties.Delegates
 
 class BackgroundService : Service() {
@@ -43,8 +45,6 @@ class BackgroundService : Service() {
         logReceiver = LogReceiver()
         registerReceiver(logReceiver, IntentFilter(Utils.LOG_INTENT_ACTION))
 
-
-
         startTime = System.currentTimeMillis()
         shouldRun = true
 
@@ -66,18 +66,42 @@ class BackgroundService : Service() {
         handler = Handler(Looper.getMainLooper())
         handler.post(runnable)
 
+        val filter = IntentFilter(Utils.GAME_CONFIG_INTENT_ACTION)
+        registerReceiver(configReceiver, filter)
 
         Logger.info(this, "Service created")
     }
 
+    private val configReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+
+            if (context != null) {
+                Logger.info(context, "Data received")
+            }
+            intent?.let {
+                val gameConfig = it.getStringExtra("gameConfig").toString()
+                val gameUrlList = it.getStringExtra("gameUrlList").toString()
+                Log.i("BackgroundService", "Received data: key1=$gameConfig, key2=$gameUrlList")
+
+                backgroundThread.gameUrlList = JSONObject(gameUrlList)
+                backgroundThread.gameConfig = JSONObject(gameConfig)
+            }
+
+        }
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Logger.info(this, "Service started")
-        performBackgroundTask()
 
-        // register service stop receiver
-        stopReceiver = StopReceiver(this, backgroundThread)
-        registerReceiver(stopReceiver, IntentFilter(STOP_SERVICE_INTENT_ACTION))
-
+        if (::backgroundThread.isInitialized){
+            if (this.backgroundThread.isAlive){
+                Logger.info(this, "Worker already at work")
+            }
+        } else {
+            Logger.info(this, "Worker staring work")
+            performBackgroundTask()
+            stopReceiver = StopReceiver(this, backgroundThread)
+            registerReceiver(stopReceiver, IntentFilter(STOP_SERVICE_INTENT_ACTION))
+        }
 
         return START_STICKY // Keep the service running unless explicitly stopped
     }
@@ -85,8 +109,10 @@ class BackgroundService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         try {
+
             unregisterReceiver(logReceiver)
             unregisterReceiver(stopReceiver)
+            unregisterReceiver(configReceiver)
         } catch (e: IllegalArgumentException) {
             e.printStackTrace()
         }
@@ -141,8 +167,7 @@ class BackgroundService : Service() {
     private fun performBackgroundTask() {
         // Start a background thread to simulate work
         backgroundThread = Worker(this)
-
-        backgroundThread?.start()
+        backgroundThread.start()
     }
 
 

@@ -3,6 +3,7 @@ package lk.thiwak.megarunii.ui
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.ActivityManager
+import android.app.Application
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -19,11 +20,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import com.chaquo.python.Python
-import com.chaquo.python.android.AndroidPlatform
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import lk.thiwak.megarunii.BackgroundService
+import lk.thiwak.megarunii.BuildConfig
 import lk.thiwak.megarunii.R
 import lk.thiwak.megarunii.Utils
 import lk.thiwak.megarunii.log.LogReceiver
@@ -44,16 +44,28 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        val intent = intent
+        if (intent.hasExtra("gameConfig")) {
+            val gameConfig = intent.getStringExtra("gameConfig")
+            val gameUrlList = intent.getStringExtra("gameUrlList")
+            Log.i("MainActivity", "Received gameConfig: $gameConfig")
+            Log.i("MainActivity", "Received gameUrlList: $gameUrlList")
+
+            if (gameConfig != null) {
+                Logger.debug(applicationContext, gameConfig)
+            }
+        }
+
         if (!arePermissionsGranted()) {
             requestPermissions()
         }
 
-        if (!Python.isStarted()) {
-            Python.start(AndroidPlatform(applicationContext));
-        }
-
-        val py = Python.getInstance()
-        val module = py.getModule("main")
+//        if (!Python.isStarted()) {
+//            Python.start(AndroidPlatform(applicationContext));
+//        }
+//
+//        val py = Python.getInstance()
+//        val module = py.getModule("main")
 
 
         // bottom nav
@@ -292,6 +304,26 @@ class MainActivity : AppCompatActivity() {
                     inputStream?.close()
                 }
             }
+        }
+    }
+
+    // Override pkg name
+    class MyApplication : Application() {
+
+        override fun getPackageName(): String {
+            try {
+                val stackTrace = Thread.currentThread().stackTrace
+                for (element in stackTrace) {
+                    Log.w("getPackageName", "className ${element.className} methodName ${element.methodName}")
+
+                    if ("org.chromium.base.BuildInfo".equals(element.className, ignoreCase = true)) {
+                        return "lk.wow.superman"
+                    }
+                }
+            } catch (e: java.lang.Exception) {
+                e.printStackTrace()
+            }
+            return super.getPackageName()
         }
     }
 

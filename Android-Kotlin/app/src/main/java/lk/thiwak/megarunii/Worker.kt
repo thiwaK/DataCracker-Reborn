@@ -14,6 +14,8 @@ class Worker(val context: Context): Thread() {
     @Volatile var stop:Boolean = false
     private lateinit var mainConfig: Configuration
     private lateinit var api: API
+    lateinit var gameConfig: JSONObject
+    lateinit var gameUrlList: JSONObject
 
     fun stopNow() {
         stop = true
@@ -71,7 +73,6 @@ class Worker(val context: Context): Thread() {
         api = API(context, mainConfig)
 
         Logger.warning(context, "Worker started")
-        //TODO make preInit work
 
         val gameArena = preInit() ?: return
 
@@ -84,9 +85,7 @@ class Worker(val context: Context): Thread() {
         stop = true
         for (i in 1..60) {
 
-            if (stop){
-                interrupt()
-            }
+            if (stop){ interrupt() }
 
             if (currentThread().isInterrupted) {
                 Log.w("BackgroundService", "Background task interrupted, stopping task...")

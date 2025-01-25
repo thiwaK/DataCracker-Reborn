@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import lk.thiwak.megarunii.log.Logger
 import lk.thiwak.megarunii.ui.MainActivity
 import lk.thiwak.megarunii.ui.WebViewActivity
 
@@ -11,7 +12,6 @@ class GameConfigReceiver(private val webViewActivity: WebViewActivity) : Broadca
 
     override fun onReceive(context: Context?, intent: Intent?) {
 
-        Log.i("GameConfigReceiver", "Sending data...")
         val intentNew = Intent(context, MainActivity::class.java)
         if (intent != null) {
             intentNew.putExtra("gameConfig", intent.getStringExtra("gameConfig"))
@@ -20,7 +20,10 @@ class GameConfigReceiver(private val webViewActivity: WebViewActivity) : Broadca
         intentNew.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
         context?.startActivity(intentNew)
 
-        Log.i("GameConfigReceiver", "Killing web view...")
+
+        if (context != null) {
+            Logger.info(context, "Killing web view...")
+        }
         webViewActivity.finish()
         webViewActivity.finishAndRemoveTask()
 

@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.core.content.FileProvider
 import dalvik.system.DexClassLoader
 import net.lingala.zip4j.ZipFile
+import org.intellij.lang.annotations.Language
 import org.json.JSONObject
 import java.io.*
 import java.lang.reflect.Method
@@ -18,6 +19,7 @@ import java.security.MessageDigest
 import java.util.*
 
 object Utils {
+    public const val GAME_CONFIG_WORKER_INTENT_ACTION = "lk.thiwak.megarunii.GAME_CONFIG_WORKER"
     public const val GAME_CONFIG_INTENT_ACTION = "lk.thiwak.megarunii.GAME_CONFIG"
     public const val LOG_INTENT_ACTION = "lk.thiwak.megarunii.LOG_MESSAGE"
     public const val STOP_SERVICE_INTENT_ACTION = "lk.thiwak.megarunii.STOP_SERVICE"
