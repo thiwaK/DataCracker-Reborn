@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.core.content.ContextCompat.startActivity
+import lk.thiwak.megarunii.game.RaidShooter
 import lk.thiwak.megarunii.log.Logger
 import lk.thiwak.megarunii.network.API
 import lk.thiwak.megarunii.ui.WebViewActivity
@@ -17,10 +18,14 @@ class Worker(val context: Context): Thread() {
     lateinit var gameConfig: JSONObject
     lateinit var gameUrlList: JSONObject
 
-    fun stopNow() {
-        stop = true
+    companion object {
+        const val TAG = "BackgroundService"
     }
 
+    fun stopNow() {
+        stop = true
+        interrupt()
+    }
 
     private fun preInit(): JSONObject? {
         if (!api.checkout()){
@@ -67,6 +72,38 @@ class Worker(val context: Context): Thread() {
         return JSONObject(gameArena)
     }
 
+    private fun shouldThisInterrupted(){
+        if (stop && !currentThread().isInterrupted){
+            stopNow()
+            Log.w(TAG, "Requesting worker to quit!")
+        }
+
+    }
+
+    private fun timePass(milli: Long) {
+        val seconds = milli / 1000
+        for (i in 1..seconds) {
+            shouldThisInterrupted()
+            sleep(1000)
+            if (stop){
+                return
+            }
+        }
+
+        val remainingMillis = milli % 1000
+        if (remainingMillis > 0) {
+            sleep(remainingMillis)
+        }
+    }
+
+
+    override fun interrupt() {
+        val stopIntent = Intent(BackgroundService.STOP_SERVICE_INTENT_ACTION)
+        context.sendBroadcast(stopIntent)
+        Log.i(TAG, "Worker quit")
+        super.interrupt()
+    }
+
     override fun run() {
 
         mainConfig = Utils.getCoreConfiguration(context)!!
@@ -82,23 +119,61 @@ class Worker(val context: Context): Thread() {
         intent.putExtra("url", url)
         context.startActivity(intent)
 
-        stop = true
-        for (i in 1..60) {
+        Log.w(TAG, "Looping until config receive. Max 5 min")
+        for (i in 1..300) {
+            timePass(1000)
 
-            if (stop){ interrupt() }
-
-            if (currentThread().isInterrupted) {
-                Log.w("BackgroundService", "Background task interrupted, stopping task...")
-                return
+            if(::gameConfig.isInitialized){
+                if (gameConfig.has("sessionId") && gameConfig.has("access_token")){
+                    break
+                }
             }
 
-            Log.w("BackgroundService", "Task running: $i")
+        }
+        if(!::gameConfig.isInitialized){
+            Logger.error(context, "No game configuration received")
+            Logger.error(context, "Time out")
+            stopNow()
+            return
+        }
 
-            try {
-                sleep(5000)
-            } catch (e: InterruptedException) {
-                e.printStackTrace()
+        if (gameConfig.has("sessionId") && gameConfig.has("access_token")){
+            Logger.info(context, "Game configuration received")
+        } else {
+            Logger.error(context, "No game configuration received")
+            Logger.error(context, "Time out")
+            stopNow()
+            return
+        }
+
+        // ---------------- Identify Game ---------------- //
+
+        var currentGame: Any? = null
+        when(gameConfig.optJSONObject("game")?.optString("name")){
+            "Raid Shooter" -> {
+                currentGame = RaidShooter(context, gameConfig)
+            }
+            //"Food Blocks" -> {
+            //    val currentGame = RaidShooter(context, gameConfig)
+            //}
+        }
+
+        // ---------------- Reward Loop ---------------- //
+        while (true){
+            if (currentGame is RaidShooter){
+                if (stop){ return }
+                currentGame.askForPlayerInfo()
+
+                val waitingTime = currentGame.calWaitingTime()
+                timePass(waitingTime)
+
+                if (stop){ return }
+                currentGame.askForTheGift()
+
+                Logger.info(context, "Moving into the next hit!")
             }
         }
+
+
     }
 }

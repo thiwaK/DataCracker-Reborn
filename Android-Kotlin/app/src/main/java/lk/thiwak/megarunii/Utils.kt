@@ -10,6 +10,7 @@ import android.widget.Toast
 import androidx.core.content.FileProvider
 import dalvik.system.DexClassLoader
 import net.lingala.zip4j.ZipFile
+import net.lingala.zip4j.io.inputstream.ZipInputStream
 import org.intellij.lang.annotations.Language
 import org.json.JSONObject
 import java.io.*
@@ -17,8 +18,10 @@ import java.lang.reflect.Method
 import java.nio.ByteBuffer
 import java.security.MessageDigest
 import java.util.*
+import java.util.zip.ZipEntry
 
 object Utils {
+    public const val GIFT_KEY_INTENT_ACTION = "lk.thiwak.megarunii.GIFT_KEY"
     public const val GAME_CONFIG_WORKER_INTENT_ACTION = "lk.thiwak.megarunii.GAME_CONFIG_WORKER"
     public const val GAME_CONFIG_INTENT_ACTION = "lk.thiwak.megarunii.GAME_CONFIG"
     public const val LOG_INTENT_ACTION = "lk.thiwak.megarunii.LOG_MESSAGE"
@@ -27,6 +30,7 @@ object Utils {
     public const val RAID_SHOOTER_GAME_ID = "9482808f-72c3-43a5-96c4-38c3d3a7673e"
     public const val FOOD_BLOCKS_V = 24
     public const val FOOD_BLOCKS_GAME_ID = "907bd637-30c0-435c-af6a-ee2efc4c115a"
+    public const val CONFIG_NAME = "configuration.bin"
 
     val TAG: String = "Utils"
 
@@ -234,9 +238,9 @@ object Utils {
         return null
     }
 
-    fun unpackConfig(context: Context){
+    fun unpackConfig(context: Context, fName:String){
         val k = context.getString(R.string.app_key).reversed()
-        val zipFilePath = File(context.filesDir, "configuration.bin")
+        val zipFilePath = File(context.filesDir, fName)
         val destinationPath = File(context.filesDir.toURI())
 
         try {
@@ -246,12 +250,36 @@ object Utils {
         }
     }
 
-    private fun unpackZip(zipFilePath: String, destPath: String, password: String) {
-        val zipFile = ZipFile(zipFilePath)
-        if (zipFile.isEncrypted) {
-            zipFile.setPassword(password.toCharArray())
+    fun unpackZip(zipFilePath: Any, destPath: String, password: String): Any {
+
+        if(zipFilePath is String){
+            val zipFile = ZipFile(zipFilePath)
+            if (zipFile.isEncrypted) {
+                zipFile.setPassword(password.toCharArray())
+            }
+            zipFile.extractAll(destPath)
+            return JSONObject()
         }
-        zipFile.extractAll(destPath)
+
+        val extractedFiles = mutableListOf<ByteArray>()
+        if(zipFilePath is ByteArrayInputStream){
+
+            val zipInputStream  = ZipInputStream(zipFilePath)
+            zipInputStream.setPassword(password.toCharArray())
+            var zipEntry = zipInputStream.nextEntry
+
+            while (zipEntry != null) {
+                val byteArrayOutputStream = ByteArrayOutputStream()
+                zipInputStream.copyTo(byteArrayOutputStream)
+                extractedFiles.add(byteArrayOutputStream.toByteArray())
+
+                zipEntry = zipInputStream.nextEntry
+            }
+            zipInputStream.close()
+            return extractedFiles
+        }
+
+        return JSONObject()
     }
 
     fun getCoreConfiguration(context: Context): Configuration? {
@@ -263,14 +291,14 @@ object Utils {
             return false
         }
 
-        if (!File(context.filesDir, "configuration.bin").exists()){
+        if (!File(context.filesDir, Utils.CONFIG_NAME).exists()){
             Toast.makeText(context, "You need to have a configuration file", Toast.LENGTH_LONG).show()
             return null
         }
 
         val configJson = File(context.filesDir, "config.json")
         if (!configJson.exists()){
-            Utils.unpackConfig(context);
+            Utils.unpackConfig(context, CONFIG_NAME);
             if (!configJson.exists()){
                 Toast.makeText(context, "Something is wrong", Toast.LENGTH_LONG).show()
                 return null

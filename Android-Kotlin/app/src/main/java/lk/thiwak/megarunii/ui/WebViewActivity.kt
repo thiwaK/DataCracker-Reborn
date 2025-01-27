@@ -27,7 +27,7 @@ class WebViewActivity : AppCompatActivity() {
         setContentView(R.layout.activity_web_view)
 
         webView = findViewById(R.id.webView)
-        webView.clearCache(true)
+        //webView.clearCache(true)
 
         val webSettings = webView.settings
 

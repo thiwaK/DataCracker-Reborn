@@ -22,7 +22,6 @@ open class HttpRequest(private val context: Context) {
             }
             401 -> {
                 Logger.error(context, "401: Unauthorized")
-                Logger.info(context, "Retry with --update-token")
                 false
             }
             else -> {
@@ -35,7 +34,6 @@ open class HttpRequest(private val context: Context) {
 
     private fun executeRequest(request: okhttp3.Request): Response? {
         return try {
-//            Logger.info(context, "Request: ${request.method} ${request.url}")
             val response = client.newCall(request).execute()
             if (validateResponse(response)) response else null
         } catch (e: IOException) {

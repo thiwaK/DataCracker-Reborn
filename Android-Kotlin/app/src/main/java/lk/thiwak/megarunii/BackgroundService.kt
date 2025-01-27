@@ -14,9 +14,12 @@ import android.os.IBinder
 import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.evgenii.jsevaluator.JsEvaluator
+import com.evgenii.jsevaluator.interfaces.JsCallback
 import lk.thiwak.megarunii.log.LogReceiver
 import lk.thiwak.megarunii.log.Logger
 import lk.thiwak.megarunii.R
+import lk.thiwak.megarunii.game.Game
 import lk.thiwak.megarunii.ui.MainActivity
 import org.json.JSONObject
 import kotlin.properties.Delegates
@@ -66,8 +69,11 @@ class BackgroundService : Service() {
         handler = Handler(Looper.getMainLooper())
         handler.post(runnable)
 
-        val filter = IntentFilter(Utils.GAME_CONFIG_INTENT_ACTION)
-        registerReceiver(configReceiver, filter)
+        val configReceiverIntent = IntentFilter(Utils.GAME_CONFIG_INTENT_ACTION)
+        registerReceiver(configReceiver, configReceiverIntent)
+
+        val giftKeyReceiverIntent = IntentFilter(Utils.GIFT_KEY_INTENT_ACTION)
+        registerReceiver(giftKeyReceiver, giftKeyReceiverIntent)
 
         Logger.info(this, "Service created")
     }
@@ -90,6 +96,61 @@ class BackgroundService : Service() {
         }
     }
 
+    private val giftKeyReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+
+            Logger.info(applicationContext, "Gift magic received")
+
+            if (intent == null) {
+                Logger.error(applicationContext, "No data")
+                return
+            }
+
+            val jsonObject = intent.getStringExtra("argv")?.let { JSONObject(it) }
+            val src = intent.getStringExtra("src")
+            if (jsonObject != null && src != null) {
+                runJS(
+                    src,
+                    listOf(
+                        jsonObject.getString("0"),
+                        jsonObject.getString("1"),
+                        jsonObject.getString("2"),
+                    )
+                )
+            }
+
+        }
+    }
+
+    fun runJS(script: String, argv:List<String>) {
+        Game.giftKey = null
+
+        try {
+            val jsEvaluator = JsEvaluator(applicationContext)
+            jsEvaluator.callFunction(script,
+                object : JsCallback {
+                    override fun onResult(result: String) {
+                        //Log.e("jsEvaluator", result)
+                        Game.giftKey = result
+                        return
+                    }
+                    override fun onError(errorMessage: String) {
+                        //Log.e("jsEvaluator", errorMessage)
+                        Game.giftKey = "null"
+                        return
+                    }
+                }, "ab", argv[0], argv[1], argv[2]
+            )
+            return
+
+        }catch (e: Exception){
+            Game.giftKey = "null"
+        }
+
+        Game.giftKey = "null"
+
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
 
         if (::backgroundThread.isInitialized){
@@ -109,10 +170,10 @@ class BackgroundService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         try {
-
             unregisterReceiver(logReceiver)
             unregisterReceiver(stopReceiver)
             unregisterReceiver(configReceiver)
+            unregisterReceiver(giftKeyReceiver)
         } catch (e: IllegalArgumentException) {
             e.printStackTrace()
         }

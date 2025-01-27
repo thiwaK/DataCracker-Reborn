@@ -11,11 +11,8 @@ import lk.thiwak.webview.WebViewRequest
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
-import okio.Buffer
-import org.intellij.lang.annotations.Language
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -24,6 +21,7 @@ import java.util.zip.GZIPInputStream
 
 
 class MyWebViewClient(
+
     private val context: Context,
     private val data: Map<String, String>,
     webView: WebView) : CustomWebViewClient(webView) {
@@ -32,34 +30,14 @@ class MyWebViewClient(
         private const val TAG = "WebViewClient"
         val gameUrlList: JSONObject = JSONObject()
         val gameConfig: JSONObject = JSONObject()
-
-        private val httpClient = OkHttpClient()
     }
 
+    data class ParsedContent (
+        val webResourceResponse: WebResourceResponse?,
+        val bodyText: String?
+    )
 
-    private val requestHeaders: MutableMap<String, List<String>> = mutableMapOf(
-        "sec-ch-ua-mobile" to listOf("?1"),
-        "Accept" to listOf("*/*"),
-        "Sec-Fetch-Site" to listOf("same-origin"),
-        "Sec-Fetch-Mode" to listOf("cors"),
-        "Sec-Fetch-Dest" to listOf("empty"),
-        "Accept-Encoding" to listOf("gzip, deflate, br, zstd"),
-        "Accept-Language" to listOf("en-GB,en-US;q=0.9,en;q=0.8"),
-        "sec-ch-ua-platform" to listOf("\"Android\""),
-        "X-Requested-With" to listOf("lk.wow.superman"),
-        "sec-ch-ua" to listOf(
-            "\"Chromium\";v=\"130\"",
-            "\"Android WebView\";v=\"130\"",
-            "\"Not?A_Brand\";v=\"99\""
-        ),
-        "Accept-Encoding" to listOf("deflate"),
-        "Accept-Language" to listOf("en-GB,en-US;q=0.9,en;q=0.8"),
-        "Accept" to listOf("text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
-    ).apply {
-        data["referer"]?.let { this["Referer"] = listOf(it) }
-        data["user-agent"]?.let { this["User-Agent"] = listOf(it) }
-    }
-
+    private val httpClient = OkHttpClient()
     private fun fetchData(url: String, method: String, headers: Map<String, String>, body:String?,
     type:String?): Response {
 
@@ -126,139 +104,99 @@ class MyWebViewClient(
         }
     }
 
-    private fun createWebResourceResponse(response: Response): WebResourceResponse {
-        // Extract data from the response
-
-        // val contentType = response.header("Content-Type", "text/html") ?: "text/html"
-        val contentEncoding = response.header("Content-Encoding", "UTF-8") ?: "UTF-8"
-        val contentTypeHeader = response.header("Content-Type", "text/html") ?: "text/html"
-        val contentType = contentTypeHeader.split(";")[0].trim()
-        val statusCode = response.code
-        val reasonPhrase = response.message.ifBlank { "OK" }
-        val responseHeaders = response.headers.toMultimap().mapValues { it.value.joinToString(", ") }
-        val bodyStream = response.body?.byteStream()
-
-        // Return a WebResourceResponse
-        return WebResourceResponse(
-            contentType,
-            contentEncoding,
-            statusCode,
-            reasonPhrase,
-            responseHeaders,
-            bodyStream
-        )
-    }
-
     private fun getWebPImageInputStream(context: Context, resourceId: Int): InputStream? {
         return try {
             context.resources.openRawResource(resourceId)
         } catch (e: Exception) {
+            Logger.error(context, "getWebPImageInputStream: ${e.message}")
             e.printStackTrace()
             null
         }
     }
 
-    override fun shouldInterceptRequest(view: WebView, request: WebViewRequest): WebResourceResponse? {
+    private fun parseResponse(customResponse:Response): ParsedContent {
+        Log.w(TAG, ":parseResponse:")
+
+        val contentTypeHeader = customResponse.header("Content-Type") ?: "text/html"
+        val contentType = contentTypeHeader.split(";")[0].trim()
+        val contentEncoding = customResponse.header("Content-Encoding") ?: "UTF-8"
+        val statusCode = customResponse.code
+        val reasonPhrase = customResponse.message.ifBlank { "OK" }
+        val responseHeaders = customResponse.headers.toMultimap().mapValues { it.value.joinToString(", ") }
+        val bodyContent = customResponse.body?.bytes()
+
+        var bodyText: String? = null
+
+        if (bodyContent != null) {
+            if (bodyContent.isEmpty()){
+                Log.e(TAG, "EMPTY BODY!!!!")
+            }
+
+            bodyText = when (contentEncoding.lowercase()) {
+                "gzip" -> {
+                    Log.w(TAG, "gzip: $contentEncoding")
+                    unzipGzipByteArray(bodyContent)
+                }
+                "utf-8" -> {
+                    Log.w(TAG, "utf-8: $contentEncoding")
+                    bodyContent.toString(Charsets.UTF_8)
+                }
+                else -> {
+                    Log.w(TAG, "Unknown Content-Encoding: $contentEncoding")
+                    null
+                }
+            }
+        } else {
+            Log.e(TAG, "NULL BODY!!!!")
+        }
+
+        val newBodyStream = bodyContent?.inputStream()
+
+        return ParsedContent(WebResourceResponse(
+            contentType,
+            contentEncoding,
+            statusCode,
+            reasonPhrase,
+            responseHeaders,
+            newBodyStream
+        ), bodyText)
+
+    }
+
+    override fun shouldInterceptRequest(view: WebView, webViewRequest: WebViewRequest): WebResourceResponse? {
 
         fun getWebViewRequest(headers: Map<String, String>): WebViewRequest{
             return WebViewRequest(
-                type = request.type,
-                url = request.url,
-                method = request.method,
-                body = request.body,
-                formParameters = request.formParameters,
+                type = webViewRequest.type,
+                url = webViewRequest.url,
+                method = webViewRequest.method,
+                body = webViewRequest.body,
+                formParameters = webViewRequest.formParameters,
                 headers = headers,
-                trace = request.trace,
-                enctype = request.enctype,
-                isForMainFrame = request.isForMainFrame,
-                isRedirect = request.isRedirect,
-                hasGesture = request.hasGesture
+                trace = webViewRequest.trace,
+                enctype = webViewRequest.enctype,
+                isForMainFrame = webViewRequest.isForMainFrame,
+                isRedirect = webViewRequest.isRedirect,
+                hasGesture = webViewRequest.hasGesture
             )
         }
 
-        data class ParsedContent (
-            val webResourceResponse: WebResourceResponse?,
-            val bodyText: String?
-        )
-        fun parseResponse(customResponse:Response): ParsedContent {
-            Log.w(TAG, ":parseResponse:")
-
-            val contentTypeHeader = customResponse.header("Content-Type") ?: "text/html"
-            val contentType = contentTypeHeader.split(";")[0].trim()
-            val contentEncoding = customResponse.header("Content-Encoding") ?: "UTF-8"
-            val statusCode = customResponse.code
-            val reasonPhrase = customResponse.message.ifBlank { "OK" }
-            val responseHeaders = customResponse.headers.toMultimap().mapValues { it.value.joinToString(", ") }
-            val bodyContent = customResponse.body?.bytes()
-
-            var bodyText: String? = null
-
-            if (bodyContent != null) {
-                if (bodyContent.isEmpty()){
-                    Log.e(TAG, "EMPTY BODY!!!!")
-                }
-
-                bodyText = when (contentEncoding.lowercase()) {
-                    "gzip" -> {
-                        Log.w(TAG, "gzip: $contentEncoding")
-                        unzipGzipByteArray(bodyContent)
-                    }
-                    "utf-8" -> {
-                        Log.w(TAG, "utf-8: $contentEncoding")
-                        bodyContent.toString(Charsets.UTF_8)
-                    }
-                    else -> {
-                        Log.w(TAG, "Unknown Content-Encoding: $contentEncoding")
-                        null
-                    }
-                }
-            } else {
-                Log.e(TAG, "NULL BODY!!!!")
-            }
-
-            val newBodyStream = bodyContent?.inputStream()
-
-            return ParsedContent(WebResourceResponse(
-                contentType,
-                contentEncoding,
-                statusCode,
-                reasonPhrase,
-                responseHeaders,
-                newBodyStream
-            ), bodyText)
-
-        }
-
-//        val request = requestOriginal
-        val headers = request.headers.toMutableMap()
-        val body = request.body
-        val contentType = request.headers["content-type"]
-        val url = request.url
+        val headers = webViewRequest.headers.toMutableMap()
+        val body = webViewRequest.body
+        val contentType = webViewRequest.headers["content-type"]
+        val url = webViewRequest.url
         val referer = data["referer"].toString()
 
-        if (request != null) {
+        if (webViewRequest != null) {
 
             if (!url.startsWith("http")) {
-                return super.shouldInterceptRequest(view, request)
+                return super.shouldInterceptRequest(view, webViewRequest)
             }
 
-
-//            Log.w(TAG, "> url $url")
-//            if (headers.contains("referer")) {
-//                Log.w(TAG, "> referer ${headers["referer"]}")
-//            }
-//            if (headers.contains("origin")) {
-//                Log.w(TAG, "> origin ${headers["origin"]}")
-//            }
-
             // 404 sites
-            if(url.contains("analytics.google.com") ||
-                url.contains("stats.g.doubleclick.net") ||
-                url.contains("/ads/ga-audiences") ||
-                url.contains("play.googleapis.com") ||
-                url.contains("googletagmanager.com")
-            ){
-
+            if(url.contains("analytics.google.com") || url.contains("stats.g.doubleclick.net") ||
+                url.contains("/ads/ga-audiences") || url.contains("play.googleapis.com") ||
+                url.contains("googletagmanager.com")){
                 return WebResourceResponse(
                     "text/plain",  // MIME type
                     "UTF-8",       // Encoding
@@ -267,7 +205,6 @@ class MyWebViewClient(
                     mapOf("Cache-Control" to "no-cache"), // Headers
                     null           // InputStream (null for empty body)
                 )
-
             }
 
 
@@ -277,7 +214,7 @@ class MyWebViewClient(
                 headers["referer"] = referer
                 headers["Accept-Encoding"] = "deflate"
 
-                val response = fetchData(url, request.method.uppercase(), headers, body, contentType)
+                val response = fetchData(url, webViewRequest.method.uppercase(), headers, body, contentType)
                 val parsedResponse = parseResponse(response)
                 val responseForReturn = parsedResponse.webResourceResponse
                 val bodyText = parsedResponse.bodyText
@@ -289,6 +226,28 @@ class MyWebViewClient(
             // Requests after landing page
             headers["x-requested-with"] = "lk.wow.superman"
 
+            // Identify current game and it's properties
+            if (gameUrlList.length() > 0) {
+
+                if (!gameConfig.has("UA")){
+                    if (headers.containsKey("user-agent")){
+                        gameConfig.put("UA", headers["user-agent"])
+                    }
+
+                }
+                if (!gameConfig.has("SEC_CH_UA")){
+                    if (headers.containsKey("sec-ch-ua")){
+                        gameConfig.put("SEC_CH_UA", headers["sec-ch-ua"])
+                    }
+
+                }
+                gameUrlList.keys().iterator().forEach { key ->
+                    if(url == key || url.contains(key)){
+                        val cGame = gameUrlList.getJSONObject(key)
+                        gameConfig.put("game", cGame)
+                    }
+                }
+            }
 
             // Capture access token
             if (url.contains("/api/user/v1/access-token/${referer.split("token=").last()}")){
@@ -297,7 +256,7 @@ class MyWebViewClient(
                 // Must set this header
                 headers["referer"] = referer
 
-                val response = fetchData(url, request.method.uppercase(), headers, body, contentType)
+                val response = fetchData(url, webViewRequest.method.uppercase(), headers, body, contentType)
                 val parsedResponse = parseResponse(response)
                 val responseForReturn = parsedResponse.webResourceResponse
                 val bodyText = parsedResponse.bodyText
@@ -363,6 +322,9 @@ class MyWebViewClient(
                     context.sendBroadcast(intent)
                     Logger.info(context, "Gift request captured")
                 }
+
+                // The gift request will be not sent
+                return null
             }
 
             // New game
@@ -370,89 +332,14 @@ class MyWebViewClient(
                 Logger.info(context, "New game")
             }
 
-            // iFrame JS injection
-            // dshl99o7otw46.cloudfront.net /games/907bd637-30c0-435c-af6a-ee2efc4c115a/build/v25/bundle.js
-            val jsInjectActivate = false
-            if (jsInjectActivate && url.contains("cloudfront.net/games/") && url.contains("/build/") && url.endsWith("bundle.js")){
-                Log.w(TAG, "iFrame !!!!!!!!!!!")
-
-                @Language("JS")
-                val JAVASCRIPT_INTERCEPTION_CODE = """
-                    // Override the XMLHttpRequest to set the x-request-with header
-                    XMLHttpRequest.prototype._open = XMLHttpRequest.prototype.open;
-                    XMLHttpRequest.prototype.open = function (method, url, async, user, password) {
-                        this._open(method, url, async, user, password);
-                    };
-
-                    XMLHttpRequest.prototype._setRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
-                    XMLHttpRequest.prototype.setRequestHeader = function (header, value) {
-                        if (header.toLowerCase() === 'x-request-with') {
-                            value = 'test.app'; // Set only x-request-with header to test.app
-                        }
-                        this._setRequestHeader(header, value);
-                    };
-
-                    XMLHttpRequest.prototype._send = XMLHttpRequest.prototype.send;
-                    XMLHttpRequest.prototype.send = function (body) {
-                        this._send(body);
-                    };
-
-                    // Override fetch to add the x-request-with header to the request
-                    window._fetch = window.fetch;
-                    window.fetch = function () {
-                        const firstArgument = arguments[0];
-                        let headers = arguments[1] && 'headers' in arguments[1] ? arguments[1]['headers'] : {};
-
-                        // Set the x-request-with header to 'test.app'
-                        if (!headers['x-request-with']) {
-                            headers['x-request-with'] = 'test.app';
-                        }
-
-                        return window._fetch.call(this, firstArgument, { ...arguments[1], headers });
-                    }
-
-                """.trimIndent()
-
-                headers["Accept-Encoding"] = "deflate"
-                headers["x-requested-with"] = "lk.wow.superman"
-
-                val response = fetchData(url, request.method.uppercase(), headers, body, contentType)
-                if (response != null) {
-                    val contentTypeHeader =
-                        response.header("Content-Type", "text/html") ?: "text/html"
-                    val contentType = contentTypeHeader.split(";")[0].trim()
-                    val contentEncoding = response.header("Content-Encoding", "UTF-8")
-                    val statusCode = response.code
-                    val reasonPhrase = response.message.ifBlank { "OK" }
-                    val responseHeaders =
-                        response.headers.toMultimap().mapValues { it.value.joinToString(", ") }
-                    val bodyContent = response.body?.bytes()
-                    val newBodyStream = JAVASCRIPT_INTERCEPTION_CODE + bodyContent.toString()
-
-                    if (bodyContent != null) {
-                        Log.w(TAG, bodyContent.toString())
-                    }
-
-                    Log.w(TAG, "Return response")
-                    return WebResourceResponse(
-                        contentType,
-                        contentEncoding,
-                        statusCode,
-                        reasonPhrase,
-                        responseHeaders,
-                        ByteArrayInputStream(newBodyStream.toByteArray())
-                    )
-                }
-
-            }
-
             // Splash webp replace (must implement before extension skip)
             val replaceSplash = true
-            if (replaceSplash && url.contains("images/mega%20games.webp")) {
+            if (replaceSplash && (url.endsWith("images/imi_loading.webp") || url.endsWith("images/splash.webp"))) {
                 Log.e(TAG, "Splash replace")
 
-                val inputStream = getWebPImageInputStream(context, R.mipmap.splash)
-                val response = fetchData(url, request.method.uppercase(), headers, body, contentType)
+                headers["Accept-Encoding"] = "deflate"
+                val inputStream = getWebPImageInputStream(context, R.mipmap.imi_loading)
+                val response = fetchData(url, webViewRequest.method.uppercase(), headers, body, contentType)
 
                 if (response != null) {
                     val contentTypeHeader =
@@ -467,6 +354,12 @@ class MyWebViewClient(
                     val newBodyStream = bodyContent?.inputStream()
                     Log.i(TAG, newBodyStream.hashCode().toString())
 
+                    Log.w(TAG, "contentType $contentType")
+                    Log.w(TAG, "contentEncoding $contentEncoding")
+                    if (bodyContent != null) {
+                        Log.w(TAG, "bodyContent ${bodyContent.size}")
+                    }
+
                     return WebResourceResponse(
                         contentType,
                         contentEncoding,
@@ -479,6 +372,7 @@ class MyWebViewClient(
 
             }
 
+            // FoodBlocks version detect
             if(url.contains("/games/${Utils.FOOD_BLOCKS_GAME_ID}/build") && url.endsWith("bundle.js")){
                 if (url.split("/").dropLast(1).last() != "v${Utils.FOOD_BLOCKS_V}") {
                     Logger.warning(context, "Supported version: v${Utils.FOOD_BLOCKS_V}, " +
@@ -486,6 +380,7 @@ class MyWebViewClient(
                 }
             }
 
+            // RaidShooter version detect
             else if(url.contains("/games/${Utils.RAID_SHOOTER_GAME_ID}/build") && url.endsWith("bundle.js")){
                 if (url.split("/").dropLast(1).last() != "v${Utils.RAID_SHOOTER_V}") {
                     Logger.warning(context, "Supported version: v${Utils.RAID_SHOOTER_V}, " +
@@ -495,15 +390,16 @@ class MyWebViewClient(
             }
 
 
-            // No way to handle iFrame requests
-            if (!request.isForMainFrame){
+            // No way to handle iFrame requests (body content)
+            // x-request-with will be override
+            if (!webViewRequest.isForMainFrame){
                 return super.shouldInterceptRequest(view, getWebViewRequest(headers))
             }
 
             // Default behaviour: Custom interceptor
             // headers["Accept-Encoding"] = "deflate"
             headers["x-requested-with"] = "lk.wow.superman"
-            val response = fetchData(url, request.method.uppercase(), headers, body, contentType)
+            val response = fetchData(url, webViewRequest.method.uppercase(), headers, body, contentType)
             val parsedResponse = parseResponse(response)
             val responseForReturn = parsedResponse.webResourceResponse
             val bodyText = parsedResponse.bodyText
@@ -525,6 +421,10 @@ class MyWebViewClient(
     }
 
     override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+        Logger.error(context, "MyWebViewClient: onReceivedError")
+        if (error != null) {
+            Logger.error(context, error.description.toString())
+        }
         super.onReceivedError(view, request, error)
     }
 }
