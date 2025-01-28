@@ -12,7 +12,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
-import android.util.Base64
 import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
@@ -21,8 +20,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
-import com.evgenii.jsevaluator.JsEvaluator
-import com.evgenii.jsevaluator.interfaces.JsCallback
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import lk.thiwak.megarunii.BackgroundService
@@ -30,19 +27,20 @@ import lk.thiwak.megarunii.R
 import lk.thiwak.megarunii.Utils
 import lk.thiwak.megarunii.log.LogReceiver
 import lk.thiwak.megarunii.log.Logger
-import okhttp3.RequestBody.Companion.toRequestBody
-import okio.ByteString.Companion.encodeUtf8
 import java.io.*
 import java.util.*
 
 
 class MainActivity : AppCompatActivity() {
 
-    val TAG: String = "MainActivity"
+
     private lateinit var logReceiver: LogReceiver
     private lateinit var fab: FloatingActionButton
-    private val REQUEST_CODE_PICK_FILE = 1
 
+    companion object {
+        const val TAG: String = "MainActivity"
+        private const val REQUEST_CODE_PICK_FILE = 1
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,9 +61,6 @@ class MainActivity : AppCompatActivity() {
         if (!arePermissionsGranted()) {
             requestPermissions()
         }
-
-
-        testJS()
 
 
         // bottom nav
@@ -124,64 +119,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-    }
-
-    fun testJS(){
-
-        fun runJS(script: String): Any? {
-
-            Log.w(TAG, script)
-            val jsEvaluator = JsEvaluator(this)
-            jsEvaluator.callFunction(script,
-                object : JsCallback {
-                    override fun onResult(result: String) {
-                        Log.e("jsEvaluator", result)
-                    }
-                    override fun onError(errorMessage: String) {
-                        Log.e("jsEvaluator", errorMessage)
-                    }
-                }, "ab", "", 0, 0
-            )
-
-            return null
-        }
-
-        if(!File(applicationContext.filesDir, Utils.CONFIG_NAME).exists()){
-            Log.w(TAG, "NO CONFIG")
-            return
-        }
-
-        val zipFile = net.lingala.zip4j.ZipFile(File(applicationContext.filesDir, Utils.CONFIG_NAME))
-        if (zipFile.isEncrypted) {
-            zipFile.setPassword(applicationContext.getString(R.string.app_key).reversed().toCharArray())
-        }
-
-        val comment = zipFile.comment
-        if (comment.isNullOrEmpty()){
-            Log.w(TAG, "NULL COMMENT")
-            return
-        }
-        zipFile.close()
-
-        val decodedComment = StringBuilder()
-        for (char in comment) {
-            val encryptedChar = char.code.xor('='.code).toChar()
-            decodedComment.append(encryptedChar)
-        }
-
-        val zipContent = Base64.decode(decodedComment.toString(), Base64.DEFAULT)
-        val byteArrayInputStream = ByteArrayInputStream(zipContent)
-        val out = Utils.unpackZip(byteArrayInputStream, "", applicationContext.getString(R.string.app_key).reversed())
-        if (out !is List<*>){
-            return
-        }
-
-        val script = out
-            .filterIsInstance<ByteArray>()
-            .joinToString(separator = "") { byteArray -> byteArray.toString(Charsets.UTF_8) }
-
-        val result = runJS(script)
-//        Log.w(TAG, result.toString())
     }
 
     private fun parseConfig() {
@@ -333,7 +270,7 @@ class MainActivity : AppCompatActivity() {
         Logger.debug(this, "Action: stop service")
 
         val stopIntent = Intent()
-        stopIntent.action = BackgroundService.STOP_SERVICE_INTENT_ACTION
+        stopIntent.action = Utils.STOP_SERVICE_INTENT_ACTION
         sendBroadcast(stopIntent)
 
         fab.setImageResource(R.drawable.ic_baseline_play_circle_24) // Change to play icon

@@ -1,12 +1,7 @@
 package lk.thiwak.megarunii.game
 
 import android.content.Context
-import android.content.pm.PackageInfo
-import android.content.pm.PackageManager
-import android.util.Log
-import android.webkit.WebView
 import lk.thiwak.megarunii.log.Logger
-import okhttp3.Headers
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -21,12 +16,11 @@ class API(var context: Context, var gameConfig:JSONObject) {
     private var client: OkHttpClient = OkHttpClient.Builder().build()
     private var defaultHeaders: MutableMap<String, String> = mutableMapOf()
 
-    val GIFT_PATH = "/api/game/v1/game-session/random-gift/${gameConfig.getString("sessionId")}/1"
-    val PROFILE_DATA = "/api/game/v1/profile/data"
-    val BASE_URL = "https://dshl99o7otw46.cloudfront.net"
+    private val GIFT_PATH = "/api/game/v1/game-session/random-gift/${gameConfig.getString("sessionId")}/1"
+    private val PROFILE_DATA = "/api/game/v1/profile/data"
+    private val BASE_URL = "https://dshl99o7otw46.cloudfront.net"
 
     init {
-
         defaultHeaders = mutableMapOf(
             "Sec-Fetch-Site" to "same-origin",
             "Sec-Fetch-Mode" to "cors",
@@ -41,7 +35,6 @@ class API(var context: Context, var gameConfig:JSONObject) {
             "user-agent" to gameConfig.getString("UA"),
             "authorization" to "Bearer ${gameConfig.getString("access_token")}",
         )
-
     }
 
 

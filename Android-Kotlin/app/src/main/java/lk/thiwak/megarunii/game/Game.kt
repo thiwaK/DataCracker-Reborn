@@ -1,28 +1,27 @@
 package lk.thiwak.megarunii.game
 
-
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
 import android.util.Base64
-import android.util.Log
-import com.evgenii.jsevaluator.JsEvaluator
-import com.evgenii.jsevaluator.interfaces.JsCallback
-import com.squareup.duktape.Duktape
 import lk.thiwak.megarunii.R
 import lk.thiwak.megarunii.Utils
 import lk.thiwak.megarunii.log.Logger
 import okhttp3.Response
+import org.json.JSONArray
 import org.json.JSONObject
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.*
+import java.util.concurrent.LinkedBlockingQueue
 import kotlin.random.Random
-import java.util.zip.ZipFile
 
-open class Game(private val gameConfig:JSONObject, private val context:Context) {
-
+open class Game (
+    private val context:Context,
+    private val gameConfig:JSONObject,
+    private val serviceQueue: LinkedBlockingQueue<String>, //To send data
+    private val threadQueue: LinkedBlockingQueue<String>, //To retrieve data
+)
+{
     val noGiftsWarnLimit = 25
     var giftCount = 0
     var gameScore = 0
@@ -40,17 +39,9 @@ open class Game(private val gameConfig:JSONObject, private val context:Context) 
         const val TAG = "Game"
     }
 
-    fun getCurrentTimeStr(): String{
-        val currentTimeMillis = System.currentTimeMillis()
-        val dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-        return dateFormat.format(Date(currentTimeMillis))
-    }
-
     fun getStrTime(milliseconds: Long): String {
-        val currentTimeMillis = System.currentTimeMillis()
-        val newTimeMillis = currentTimeMillis + milliseconds
         val dateFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
-        return dateFormat.format(Date(newTimeMillis))
+        return dateFormat.format(Date(milliseconds))
     }
 
     fun askForPlayerInfo() {
@@ -80,28 +71,37 @@ open class Game(private val gameConfig:JSONObject, private val context:Context) 
         return null
     }
 
-
     fun getGift(body: String): Int? {
 
-        Logger.error(context, "A gift magic requested")
+        // Getting gift magic
+        Logger.info(context, "A gift magic requested")
+
         giftKey = null
+        threadQueue.clear()
+        serviceQueue.clear()
+
+        // Send data through serviceQueue
         getGiftKey()
 
+        // Wait for reply
         for (i in 1..10){
             Thread.sleep(500)
-            if(giftKey != null){
+            if(!threadQueue.isEmpty()){
                 break
             }
         }
 
-        if (giftKey == null){
-            Logger.error(context, "CRITICAL: Gift magic failed")
+        val data = threadQueue.take()
+        if (data.isNullOrEmpty()){
+            Logger.error(context, "CRITICAL: empty gift magic")
             return null
         }
-
-        if (giftKey == "null"){
-            Logger.error(context, "Null gift magic !")
+        else if (data.lowercase() == "null"){
+            Logger.error(context, "CRITICAL: null gift magic")
             return null
+        }
+        else{
+            giftKey = data
         }
 
         Logger.info(context, "Gift magic: $giftKey")
@@ -120,18 +120,54 @@ open class Game(private val gameConfig:JSONObject, private val context:Context) 
         return null
     }
 
+    private fun getScript():String?{
+        if(!File(context.filesDir, Utils.CONFIG_NAME).exists()){
+            return null
+        }
+
+        val zipFile = net.lingala.zip4j.ZipFile(File(context.filesDir, Utils.CONFIG_NAME))
+        if (zipFile.isEncrypted) {
+            zipFile.setPassword(context.getString(R.string.app_key).reversed().toCharArray())
+        }
+        val comment = zipFile.comment
+        zipFile.close()
+
+        val decodedComment = StringBuilder()
+        for (char in comment) {
+            val encryptedChar = char.code.xor('='.code).toChar()
+            decodedComment.append(encryptedChar)
+        }
+
+        val zipContent = Base64.decode(decodedComment.toString(), Base64.DEFAULT)
+        val byteArrayInputStream = ByteArrayInputStream(zipContent)
+        val unpackedZipContent = Utils.unpackZip(byteArrayInputStream, "", context.getString(R.string.app_key).reversed())
+        if (unpackedZipContent !is List<*>){
+            return null
+        }
+
+        val script = unpackedZipContent
+            .filterIsInstance<ByteArray>()
+            .joinToString(separator = "") { byteArray -> byteArray.toString(Charsets.UTF_8) }
+        return script
+    }
+
     private fun getGiftKey() {
 
-        fun runJS(script: String, argv:List<String>) {
+        fun runJS(argv:List<String>) {
 
-            val giftKeyIntent = Intent(Utils.GIFT_KEY_INTENT_ACTION)
-            giftKeyIntent.putExtra("argv", JSONObject(mapOf(
-                "0" to argv[0],
-                "1" to argv[1],
-                "2" to argv[2]
-            )).toString())
-            giftKeyIntent.putExtra("src", script)
-            context.sendBroadcast(giftKeyIntent)
+            val script = getScript()
+            if (script.isNullOrEmpty()){
+                Logger.error(context, "Empty script")
+                return
+            }
+            val dataOut = JSONObject()
+            val jsonArray = JSONArray(argv)
+            dataOut.put("argv", jsonArray)
+            dataOut.put("script", script)
+
+            serviceQueue.clear()
+            serviceQueue.put(dataOut.toString())
+
         }
 
         val gameName = gameConfig.optJSONObject("game")?.optString("name") ?: run {
@@ -154,28 +190,6 @@ open class Game(private val gameConfig:JSONObject, private val context:Context) 
             return
         }
 
-        val zipFile = net.lingala.zip4j.ZipFile(File(context.filesDir, Utils.CONFIG_NAME))
-        if (zipFile.isEncrypted) {
-            zipFile.setPassword(context.getString(R.string.app_key).reversed().toCharArray())
-        }
-        val comment = zipFile.comment
-        zipFile.close()
-
-        val decodedComment = StringBuilder()
-        for (char in comment) {
-            val encryptedChar = char.code.xor('='.code).toChar()
-            decodedComment.append(encryptedChar)
-        }
-        val zipContent = Base64.decode(decodedComment.toString(), Base64.DEFAULT)
-        val byteArrayInputStream = ByteArrayInputStream(zipContent)
-        val unpackedZipContent = Utils.unpackZip(byteArrayInputStream, "", context.getString(R.string.app_key).reversed())
-        if (unpackedZipContent !is List<*>){
-            return
-        }
-
-        val script = unpackedZipContent
-            .filterIsInstance<ByteArray>()
-            .joinToString(separator = "") { byteArray -> byteArray.toString(Charsets.UTF_8) }
 
         val args = listOf (
             game.toString(),
@@ -183,8 +197,7 @@ open class Game(private val gameConfig:JSONObject, private val context:Context) 
             giftCount.toString()
         )
 
-        return runJS(script, args)
-
+        return runJS(args)
     }
 
 }

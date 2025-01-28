@@ -2,6 +2,7 @@ package lk.thiwak.megarunii
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -33,6 +34,7 @@ object Utils {
     public const val CONFIG_NAME = "configuration.bin"
 
     val TAG: String = "Utils"
+
 
     private fun loadClass(context: Context, config: Configuration, methodName:String): Method? {
         val libPath = File(context.filesDir.path, config.libName)

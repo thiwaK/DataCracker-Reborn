@@ -324,7 +324,14 @@ class MyWebViewClient(
                 }
 
                 // The gift request will be not sent
-                return null
+                return WebResourceResponse(
+                    "text/plain",  // MIME type
+                    "UTF-8",       // Encoding
+                    404,           // HTTP status code
+                    "Not Found",   // Status message
+                    mapOf("Cache-Control" to "no-cache"), // Headers
+                    null           // InputStream (null for empty body)
+                )
             }
 
             // New game

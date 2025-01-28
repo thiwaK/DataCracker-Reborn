@@ -18,7 +18,6 @@ class StopReceiver(private val service: BackgroundService, private val worker: W
         Log.i("BackgroundService", "Thread stopped.")
 
         service.shouldRun = false
-        service.handler.removeCallbacks(service.runnable)
         service.stopSelf()
     }
 }
