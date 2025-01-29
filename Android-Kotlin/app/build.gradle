@@ -1,6 +1,10 @@
+
+
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
+
+//    id 'kotlin-kapt'
 
 //    id("com.chaquo.python")
 }
@@ -81,9 +85,16 @@ android {
 //    }
 }
 
+
+
+
 dependencies {
     implementation project(':app:webview')
 //    implementation 'com.github.acsbendi:Android-Request-Inspector-WebView:1.0.12'
+
+//    def room_version = "2.6.1"
+//    implementation "androidx.room:room-runtime:$room_version"
+//    kapt "androidx.room:room-compiler:$room_version"
 
     implementation 'com.github.evgenyneu:js-evaluator-for-android:v6.0.0'
     implementation "com.squareup.duktape:duktape-android:1.3.0"

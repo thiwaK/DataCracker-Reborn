@@ -3,7 +3,7 @@ package lk.thiwak.megarunii
 import android.content.Context
 import android.content.Intent
 import android.os.Handler
-import android.util.Log
+//import android.util.Log
 import androidx.core.content.ContextCompat.startActivity
 import lk.thiwak.megarunii.game.Game
 import lk.thiwak.megarunii.game.RaidShooter
@@ -82,7 +82,7 @@ class Worker(val context: Context,
     private fun shouldThisInterrupted(){
         if (stop && !currentThread().isInterrupted){
             stopNow()
-            Log.w(TAG, "Requesting worker to quit!")
+            Logger.warning(context, "Requesting worker to quit!")
         }
 
     }
@@ -107,7 +107,7 @@ class Worker(val context: Context,
     override fun interrupt() {
         val stopIntent = Intent(Utils.STOP_SERVICE_INTENT_ACTION)
         context.sendBroadcast(stopIntent)
-        Log.i(TAG, "Worker quit")
+        Logger.info(context, "Worker quit")
         super.interrupt()
     }
 
@@ -132,7 +132,7 @@ class Worker(val context: Context,
         context.startActivity(intent)
 
         // Wait for gameConfig
-        Log.w(TAG, "Looping until config receive. Max 5 min")
+        //Log.w(TAG, "Looping until config receive. Max 5 min")
         for (i in 1..300) {
             timePass(1000)
             if (gameConfig.has("sessionId") && gameConfig.has("access_token")){

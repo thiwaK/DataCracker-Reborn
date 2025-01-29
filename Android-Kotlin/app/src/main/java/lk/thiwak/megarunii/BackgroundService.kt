@@ -8,7 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.*
-import android.util.Log
+//import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.evgenii.jsevaluator.JsEvaluator
 import com.evgenii.jsevaluator.interfaces.JsCallback
@@ -46,7 +46,7 @@ class BackgroundService : Service() {
             intent?.let {
                 val gameConfig = it.getStringExtra("gameConfig").toString()
                 val gameUrlList = it.getStringExtra("gameUrlList").toString()
-                Log.i("BackgroundService", "Received data: key1=$gameConfig, key2=$gameUrlList")
+                //Log.i("BackgroundService", "Received data: key1=$gameConfig, key2=$gameUrlList")
 
                 backgroundThread.gameUrlList = JSONObject(gameUrlList)
                 backgroundThread.gameConfig = JSONObject(gameConfig)

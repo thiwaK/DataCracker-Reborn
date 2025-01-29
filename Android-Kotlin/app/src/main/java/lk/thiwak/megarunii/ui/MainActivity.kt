@@ -11,8 +11,10 @@ import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
-import android.util.Log
+//import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
@@ -22,9 +24,7 @@ import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import lk.thiwak.megarunii.BackgroundService
-import lk.thiwak.megarunii.R
-import lk.thiwak.megarunii.Utils
+import lk.thiwak.megarunii.*
 import lk.thiwak.megarunii.log.LogReceiver
 import lk.thiwak.megarunii.log.Logger
 import java.io.*
@@ -33,9 +33,10 @@ import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
-
     private lateinit var logReceiver: LogReceiver
     private lateinit var fab: FloatingActionButton
+    lateinit var activityHandler: Handler
+    lateinit var activityRunnable: Runnable
 
     companion object {
         const val TAG: String = "MainActivity"
@@ -46,12 +47,22 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        val db = DatabaseHelper.getInstance(this)
+        if (db.getAllUsers().isEmpty()){
+            Logger.error(this, "Something wrong with the database")
+        }
+
+//        Logger.error(this, "Something wrong with the database")
+//        Logger.warning(this, "Something wrong with the database")
+//        Logger.info(this, "Something wrong with the database")
+//        Logger.debug(this, "Something wrong with the database")
+
         val intent = intent
         if (intent.hasExtra("gameConfig")) {
             val gameConfig = intent.getStringExtra("gameConfig")
             val gameUrlList = intent.getStringExtra("gameUrlList")
-            Log.i("MainActivity", "Received gameConfig: $gameConfig")
-            Log.i("MainActivity", "Received gameUrlList: $gameUrlList")
+            //Log.i("MainActivity", "Received gameConfig: $gameConfig")
+            //Log.i("MainActivity", "Received gameUrlList: $gameUrlList")
 
             if (gameConfig != null) {
                 Logger.debug(applicationContext, gameConfig)
@@ -61,7 +72,6 @@ class MainActivity : AppCompatActivity() {
         if (!arePermissionsGranted()) {
             requestPermissions()
         }
-
 
         // bottom nav
         val bottomNavigationView = findViewById<BottomNavigationView>(R.id.bottom_navigation)
@@ -76,12 +86,12 @@ class MainActivity : AppCompatActivity() {
             when (item.itemId) {
 
                 R.id.nav_home -> {
-                    Log.i(TAG, "HOME")
+                    //Log.i(TAG, "HOME")
                     replaceFragment(HomeFragment())
                     true
                 }
                 R.id.nav_log -> {
-                    Log.i(TAG, "LOG")
+                    //Log.i(TAG, "LOG")
                     replaceFragment(LogFragment())
                     true
                 }
@@ -97,6 +107,15 @@ class MainActivity : AppCompatActivity() {
         // log receiver
         logReceiver = LogReceiver()
         registerReceiver(logReceiver, IntentFilter(Utils.LOG_INTENT_ACTION))
+
+        activityRunnable = object : Runnable {
+            override fun run() {
+                updateFab()
+                activityHandler.postDelayed(this, 1000)
+            }
+        }
+        activityHandler = Handler(Looper.getMainLooper())
+        activityHandler.post(activityRunnable)
 
         // fab icon set
         if (isServiceRunning(BackgroundService::class.java, this)) {
@@ -121,6 +140,29 @@ class MainActivity : AppCompatActivity() {
 
     }
 
+    private fun updateFab(){
+        // fab icon set
+        if (isServiceRunning(BackgroundService::class.java, this)) {
+            fab.setImageResource(R.drawable.ic_baseline_stop_circle_24) // Service is running
+            //Logger.debug(this, "FAB: set action to stop")
+        } else {
+            fab.setImageResource(R.drawable.ic_baseline_play_circle_24) // Service is not running
+            //Logger.debug(this, "FAB: set action to start")
+        }
+
+        // fab action set
+        fab.setOnClickListener {
+            if (isServiceRunning(BackgroundService::class.java, this)) {
+                // If service is running, stop the service
+                stopService()
+            } else {
+                // If service is not running, start the service
+
+                startService()
+            }
+        }
+    }
+
     private fun parseConfig() {
 
         val config = Utils.getCoreConfiguration(applicationContext)
@@ -133,11 +175,9 @@ class MainActivity : AppCompatActivity() {
     @SuppressLint("HardwareIds")
     private fun generateClientUniqueId(): String? {
         val androidId: String = Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)
-        Log.i("Utils", androidId)
+        //Log.i("Utils", androidId)
         return androidId
     }
-
-
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
@@ -210,8 +250,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-
-
 
     private fun replaceFragment(fragment: Fragment) {
         supportFragmentManager.beginTransaction()
